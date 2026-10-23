@@ -9,13 +9,14 @@ import { useRealtimeClientFactory } from "@/lib/supabase/use-realtime";
 import { isFinished, stageNames, progressPayload } from "@/lib/progress";
 import { useStaleRun } from "./use-stale-run";
 import { RepositoryForm } from "./repository-form";
+import { AnalysisActions } from "./analysis-actions";
 
 type List = Awaited<ReturnType<typeof readAnalysisList>>;
 type Connection = "connecting" | "connected" | "reconnecting" | "unavailable";
 const connectionLabels: Record<Connection, string> = {
   connecting: "Connecting", connected: "Live", reconnecting: "Reconnecting...", unavailable: "Unavailable",
 };
-function AnalysisRow({ analysis, selected }: { analysis: List["analyses"][number]; selected: boolean }) {
+function AnalysisRow({ analysis, selected, removed }: { analysis: List["analyses"][number]; selected: boolean; removed: (id: string) => void }) {
   const stale = useStaleRun(analysis.updated_at, isFinished(analysis.stage), analysis.stale);
   const progress = progressPayload({ stage: analysis.stage, message: analysis.stage_message });
   return <li data-selected={selected}>
@@ -23,6 +24,7 @@ function AnalysisRow({ analysis, selected }: { analysis: List["analyses"][number
     <span className="analysis-status" data-status={stale ? "stale" : analysis.status}>{stale ? "Stale: " : ""}{progress ? stageNames[progress.stage] : analysis.status}</span>
     <time dateTime={analysis.created_at}>{new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(analysis.created_at))} UTC</time>
     <p className="analysis-message">{stale ? "No progress for five minutes. The process may have stopped." : analysis.stage_message}</p>
+    {isFinished(analysis.stage) || stale ? <AnalysisActions id={analysis.id} name={analysis.projects.repository_url.replace(/^https:\/\/github\.com\//, "")} retryable={analysis.status === "failed" || stale} selected={selected} removed={removed} /> : null}
   </li>;
 }
 
@@ -73,7 +75,7 @@ export function AnalysisList({ initial, organizationId }: { initial: List; organ
     </div>
     {connectionError ? <p className="live-connection" role="status">{connectionError}</p> : null}
     {list.analyses.length === 0 ? <p>No analyses yet for this team.</p> : <ul className="analysis-list">
-      {list.analyses.map((analysis) => <AnalysisRow key={`${analysis.id}:${analysis.updated_at}`} analysis={analysis} selected={pathname === `/analyses/${analysis.id}`} />)}
+      {list.analyses.map((analysis) => <AnalysisRow key={analysis.id} analysis={analysis} selected={pathname === `/analyses/${analysis.id}`} removed={id => setList(previous => ({ ...previous, analyses: previous.analyses.filter(row => row.id !== id) }))} />)}
     </ul>}
     {list.hasMore ? <p>Showing the latest 50 analyses.</p> : null}
   </aside>;

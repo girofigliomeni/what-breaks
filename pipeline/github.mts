@@ -1,5 +1,5 @@
 const headers = { Accept: "application/vnd.github+json", "User-Agent": "what-breaks" };
-const maximumArchive = 32 * 1024 * 1024;
+const maximumArchive = 128 * 1024 * 1024;
 
 export function repositoryUrl(input: string): string {
   const url = URL.parse(input.trim());
@@ -25,7 +25,7 @@ export async function fetchRepository(input: string): Promise<{ archive: Buffer;
   if (typeof metadata !== "object" || metadata === null || !("sha" in metadata) || typeof metadata.sha !== "string" || !/^[a-f0-9]{40}$/.test(metadata.sha)) throw new Error("GitHub did not return a commit SHA.");
   // Pin the archive to the resolved commit, even if the default branch moves now.
   const response = await checkedFetch(`https://codeload.github.com/${repository}/zip/${metadata.sha}`);
-  if (Number(response.headers.get("content-length")) > maximumArchive) { await response.body?.cancel(); throw new Error("Repository exceeds the 32 MiB download limit."); }
+  if (Number(response.headers.get("content-length")) > maximumArchive) { await response.body?.cancel(); throw new Error("Repository exceeds the 128 MiB download limit."); }
   if (!response.body) throw new Error("GitHub returned an empty archive.");
   const chunks: Uint8Array[] = [];
   let size = 0;
@@ -35,7 +35,7 @@ export async function fetchRepository(input: string): Promise<{ archive: Buffer;
       const { done, value } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > maximumArchive) { await reader.cancel(); throw new Error("Repository exceeds the 32 MiB download limit."); }
+      if (size > maximumArchive) { await reader.cancel(); throw new Error("Repository exceeds the 128 MiB download limit."); }
       chunks.push(value);
     }
   } finally { reader.releaseLock(); }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { readProgress } from "@/app/analyses/actions";
 import { useRealtimeClientFactory } from "@/lib/supabase/use-realtime";
-import { isFinished, progressPayload, stageNames, stages, type Progress } from "@/lib/progress";
+import { isFinished, progressPayload, stageNames, type Progress } from "@/lib/progress";
 import { useStaleRun } from "./use-stale-run";
 
 const runStages = ["fetching", "selecting", "parsing", "storing"] as const;
@@ -22,7 +22,7 @@ export function AnalysisProgress({ id, initial, initiallyStale }: {
     let revision = 0;
     const accept = (next: Progress & { updatedAt: string }) => {
       if (disposed) return;
-      setProgress((previous) => isFinished(previous.stage) || stages.indexOf(next.stage) < stages.indexOf(previous.stage) ? previous : next);
+      setProgress(next);
       if (next.stage === "completed") router.refresh();
     };
     const channel = client.channel(`analysis:${id}`, { config: { private: true } })

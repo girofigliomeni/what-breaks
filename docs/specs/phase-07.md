@@ -6,6 +6,8 @@
 
 - Fetching a public repository as an archive. No repository scope is requested
   and no token is ever stored.
+  Archives may be up to 128 MiB downloaded and 512 MiB extracted, with at most
+  20,000 entries.
 - Record which commit the archive came from. A later phase needs to know
   whether the repository has moved on since.
 - The run: fetch, select, parse, store — with named stages, and a catch at the
@@ -17,7 +19,16 @@
   Re-running the same repository is a deliberate act from that analysis, not
   something you get by pasting the URL again.
 - A progress page that names the stage as it happens, updated live.
+- Failed or stale analyses have a Retry action that restarts the same analysis
+  with a new run identity. Concurrent retries and writes from older runs cannot
+  overwrite it. Completed analyses cannot be retried in this phase.
+- Analyses that are completed, failed or stale have Remove with confirmation
+  explaining that the saved analysis and graph are deleted for the organization.
+  Active runs cannot be removed. Removing the selected analysis returns home.
+  Other open lists update live after removal.
 - The explorer, now reading real stored rows instead of the checked-in file.
+  Expanded folder headers stay within their reserved two-row height so every
+  visible file row, including the last, fits fully inside the node.
 - A coverage banner on the map, which says the graph is partial when it is.
   Its collapsed row separates the label, coverage percentage, parsed-file count
   and unresolved-import count into spaced groups instead of a sentence.
@@ -48,8 +59,8 @@
 
 - Submission authenticates with Clerk and creates/reuses the analysis under RLS.
   A single server-only writer may then use the Supabase secret key, bound to the
-  captured organization and newly created analysis, so token expiry cannot stop
-  progress, completion or failure writes. Reused analyses are not writable through
+  captured organization, explicitly created or retried analysis, and run identity, so token expiry cannot stop
+  progress, completion or failure writes. Merely reused analyses are not writable through
   this path. Application reads remain on the authenticated client under RLS.
 
 - Live progress is driven from the database, not from the browser polling.
@@ -102,6 +113,11 @@
    its map (or progress) appears beside the same list, with file details on the
    right. Select a file to populate details. Bookmark the selected URL and use
    browser Back/Forward to restore previous selections, including the empty home.
+8. Retry a failed analysis. Its URL stays the same and progress starts again.
+   Active and completed analyses do not offer Retry. A stale run does.
+9. Remove a completed, failed or stale analysis, cancel once, then confirm.
+   The row disappears in both tabs. Removing the selected analysis opens home.
+   An active run has no Remove action.
 
 ## Not in this phase
 

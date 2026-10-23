@@ -24,6 +24,7 @@ export type Database = {
           organization_id: string
           parser_result: Json | null
           project_id: string
+          run_id: string
           stage: string
           stage_message: string
           status: string
@@ -38,6 +39,7 @@ export type Database = {
           organization_id: string
           parser_result?: Json | null
           project_id: string
+          run_id?: string
           stage?: string
           stage_message?: string
           status?: string
@@ -52,6 +54,7 @@ export type Database = {
           organization_id?: string
           parser_result?: Json | null
           project_id?: string
+          run_id?: string
           stage?: string
           stage_message?: string
           status?: string
@@ -395,6 +398,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      retry_analysis: {
+        Args: { analysis_id: string }
+        Returns: { id: string; run_id: string; repository_url: string }[]
+      }
+      remove_analysis: {
+        Args: { analysis_id: string }
+        Returns: undefined
+      }
+      complete_analysis_run: {
+        Args: { analysis_id: string; result: Json; expected_run_id: string }
+        Returns: undefined
+      }
       begin_analysis: {
         Args: { repository_url: string }
         Returns: {

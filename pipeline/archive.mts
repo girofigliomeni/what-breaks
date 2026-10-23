@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
 
-const maximumExpanded = 128 * 1024 * 1024;
+const maximumExpanded = 512 * 1024 * 1024;
 
 // GitHub's ZIP archives use a central directory. Never let archive names become
 // filesystem paths until every entry has passed validation (including on Windows).
@@ -41,7 +41,7 @@ export async function extractArchive(zip: Buffer, directory: string): Promise<{ 
     const size = zip.readUInt32LE(offset + 20);
     const expanded = zip.readUInt32LE(offset + 24);
     total += expanded;
-    if (total > maximumExpanded) throw new Error("Repository exceeds the 128 MiB extracted archive limit.");
+    if (total > maximumExpanded) throw new Error("Repository exceeds the 512 MiB extracted archive limit.");
     const local = zip.readUInt32LE(offset + 42);
     if (local + 30 > zip.readUInt32LE(end + 16) || zip.readUInt32LE(local) !== 0x04034b50) throw new Error("Invalid ZIP file header.");
     const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);

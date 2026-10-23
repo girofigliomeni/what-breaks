@@ -20,7 +20,7 @@ export async function getAnalysis(id: string) {
   if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id)) return null;
   const supabase = await createSupabaseClient();
   const { data, error } = await supabase.from("analyses")
-    .select("id, status, stage, stage_message, failed_stage, failure_message, updated_at, commit_sha, projects!inner(repository_url)")
+    .select("id, run_id, status, stage, stage_message, failed_stage, failure_message, updated_at, commit_sha, projects!inner(repository_url)")
     .eq("id", id).maybeSingle();
   if (error) throw new Error(`Could not load analysis: ${error.message}`);
   return data ? { ...data, stale: !["completed", "failed"].includes(data.status) && Date.now() - Date.parse(data.updated_at) >= 5 * 60_000 } : null;

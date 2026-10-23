@@ -81,7 +81,8 @@ You pick the file structure. These are about behaviour.
   query needs a `where` clause to return the right rows, the policy is wrong.
 - **Pipeline write exception:** submission uses Clerk and RLS to create or reuse
   an analysis. One server-only writer may use `SUPABASE_SECRET_KEY` for the new
-  run, bound to its captured organization and analysis IDs. Its internal ownership
+  run (including an explicitly requested retry), bound to its captured organization,
+  analysis and run IDs. Its internal ownership
   check is allowed; application reads still use the authenticated client and RLS.
 - **One place constructs the AI client.** Anywhere else silently skips tracing.
 

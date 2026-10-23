@@ -23,7 +23,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
     if (!progress) throw new Error("The stored analysis has an invalid progress stage.");
     return <div className="analysis-explorer">
       <AnalysisContext repository={name} view="Progress" />
-      <MapShell><AnalysisProgress key={`${orgId}:${id}`} id={id} initial={{ ...progress, updatedAt: analysis.updated_at }} initiallyStale={analysis.stale} /></MapShell>
+      <MapShell><AnalysisProgress key={`${orgId}:${id}:${analysis.run_id}`} id={id} initial={{ ...progress, updatedAt: analysis.updated_at }} initiallyStale={analysis.stale} /></MapShell>
     </div>;
   }
   const result = validateResult(await getStoredResult(id));

@@ -8,6 +8,19 @@ completion or failure writes. No GitHub token or package installation is needed.
 
 ## Form, progress and stored explorer
 
+Failed or stale rows offer Retry. Completed, failed and stale rows offer Remove
+with an organization-wide deletion confirmation. Active runs offer neither.
+Retry locks and resets the existing row under RLS, replacing its run identity.
+The server writer binds that identity for every update and atomic completion,
+so an older process cannot overwrite the retry. Removal also runs under RLS,
+checks the current state under a row lock, cascades stored graph data, and
+broadcasts a list refresh. Removing the selected analysis navigates home.
+The project record remains so the repository can be submitted again.
+
+`supabase/verify-lifecycle.sql` checks lifecycle eligibility, duplicate retries,
+run replacement, cascaded removal and cross-organization rejection in a rolled
+back transaction. The lifecycle migration is applied to the connected project.
+
 Home and analysis URLs now share one workspace layout. The repository list/form
 stays mounted on the left across selections. The centre shows instructions at
 `/`, live stages for an unfinished `/analyses/[id]`, or its completed map. The
@@ -113,7 +126,7 @@ that exact commit's ZIP. Stages are fetching, selecting, parsing, storing, then
 completed or failed. Failure records retain the stage and reason. Resubmission
 returns the existing row even if failed; rerun controls are deferred.
 
-Archive limits are 32 MiB downloaded, 128 MiB expanded, and 20,000 entries.
+Archive limits are 128 MiB downloaded, 512 MiB expanded, and 20,000 entries.
 Paths are checked before extraction, checksums are validated, and links are
 never materialized: their paths/reasons join the coverage skips. Temporary
 directories are removed after the run. Repository scripts are never executed
