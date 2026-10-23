@@ -28,7 +28,10 @@ export function MapShell({ children, files, details, category = null, setCategor
         </section>
         <aside className="dependency-details" aria-label="Repository details">{details ?? <>
           <h2 className="dependency-heading">File details</h2>
-          <div className="panel-empty"><p>No file selected</p><p>Select a file on the map to see its imports and dependants.</p></div>
+          <div className="panel-empty">
+            <svg className="empty-file" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 2.5H5.5v19h13v-14L14 2.5Z" /><path d="M14 2.5v5h4.5M8.5 12h7M8.5 16h7" /></svg>
+            <p>No file selected</p><p>File imports and dependants will appear here.</p>
+          </div>
         </>}</aside>
       </div>
     </div>

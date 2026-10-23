@@ -10,7 +10,7 @@ export default async function WorkspaceLayout({ children }: { children: ReactNod
   if (!orgId) redirect("/session-tasks/choose-organization");
   const list = await listAnalyses();
   return <main id="main-content" className="workspace-layout" aria-label="Repository workspace">
-    <Suspense fallback={<aside className="panel repository-panel"><div className="panel-heading"><h2>Repositories</h2></div><p>Loading repositories…</p></aside>}>
+    <Suspense fallback={<aside className="panel repository-panel"><div className="panel-heading"><h2>Repositories</h2></div><p>Loading repositories</p></aside>}>
       <RepositorySidebar initial={list} organizationId={orgId} />
     </Suspense>
     <div className="workspace-content">

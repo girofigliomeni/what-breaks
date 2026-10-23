@@ -19,6 +19,8 @@
 - A progress page that names the stage as it happens, updated live.
 - The explorer, now reading real stored rows instead of the checked-in file.
 - A coverage banner on the map, which says the graph is partial when it is.
+  Its collapsed row separates the label, coverage percentage, parsed-file count
+  and unresolved-import count into spaced groups instead of a sentence.
 - One shared workspace: repositories stay on the left, the selected map or live
   progress occupies the centre, and file details stay on the right. File-type
   filters sit above the map. Repository selections have bookmarkable URLs and
@@ -27,10 +29,19 @@
   section sits beneath the map and details; answering questions is not enabled yet.
   The form has no helper sentence beneath its button. The analyses heading and
   live connection status share a row, with a labelled colour indicator on the right.
+- Panel heading borders align on the empty workspace. On desktop the workspace
+  fits the viewport, with questions always visible below the map and details.
+  Long details scroll inside their own panel. The coverage disclosure arrow has
+  space before its label. UI copy uses plain punctuation without decorative
+  characters, em dashes or semicolons.
+- The title, sidebar headings and form use the same left inset. Empty map and
+  file details retain their subdued helper text, spacing and small outline icons.
 - A shared top navbar with a prominent monospace “What Breaks.” title linking home, plus the
   organization and account menus. There is no duplicate Repositories link or
   unlabeled navigation icon. The map
-  and progress page show their repository and current view below the navbar.
+  shows the repository at the top left of its canvas and the commit at the top
+  right on the same line, without a duplicate repository row. Progress still
+  identifies its repository below the navbar.
   Invitations live in organization settings; there is no separate invite button.
 
 ## Constraints

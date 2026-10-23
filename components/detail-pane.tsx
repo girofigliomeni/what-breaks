@@ -59,7 +59,7 @@ export function DetailPane({ result, name, selection, modules, hovered, select, 
       </> : <>
         <h2 className="detail-title">{name}</h2>
         <dl className="detail-facts"><dt>Framework</dt><dd>Not detected</dd><dt>Files</dt><dd>{result.files.length}</dd><dt>Imports</dt><dd>{result.imports.length}</dd><dt>Routes</dt><dd>Unavailable</dd><dt>Unidentified roles</dt><dd>{result.files.filter(file => fileRole(file.path) === "Unidentified").length}</dd></dl>
-        <p className="detail-note">Languages use file extensions; roles use filename conventions. Framework and route detection are unavailable in this parse.</p>
+        <p className="detail-note">Languages use file extensions. Roles use filename conventions. Framework and route detection are unavailable in this parse.</p>
         {paths("Most depended on", ranked.filter(file => (index.incoming.get(file.path)?.size ?? 0) > 0).map(file => file.path), true)}
         {paths("Start reading", ranked.filter(file => index.incoming.get(file.path)?.size === 0).map(file => file.path))}
       </>}

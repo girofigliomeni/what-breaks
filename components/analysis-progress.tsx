@@ -12,7 +12,7 @@ export function AnalysisProgress({ id, initial, initiallyStale }: {
   id: string; initial: Progress & { updatedAt: string }; initiallyStale: boolean;
 }) {
   const [progress, setProgress] = useState(initial);
-  const [connection, setConnection] = useState("Connecting live updates…");
+  const [connection, setConnection] = useState("Connecting live updates");
   const createRealtimeClient = useRealtimeClientFactory();
   const router = useRouter();
   const stale = useStaleRun(progress.updatedAt, isFinished(progress.stage), initiallyStale);
@@ -47,7 +47,7 @@ export function AnalysisProgress({ id, initial, initiallyStale }: {
             if (snapshot) accept(snapshot);
             else setConnection("This analysis is unavailable for the active organization.");
           }).catch(() => { if (!disposed) setConnection("Could not recover progress. Reload to try again."); });
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConnection("Live updates interrupted. Reconnecting…");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConnection("Live updates interrupted. Reconnecting");
       });
     }).catch(() => { if (!disposed) setConnection("Live updates unavailable. Reload to reconnect."); });
     return () => { disposed = true; void client.removeChannel(channel); };

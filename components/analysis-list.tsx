@@ -13,14 +13,14 @@ import { RepositoryForm } from "./repository-form";
 type List = Awaited<ReturnType<typeof readAnalysisList>>;
 type Connection = "connecting" | "connected" | "reconnecting" | "unavailable";
 const connectionLabels: Record<Connection, string> = {
-  connecting: "Connecting", connected: "Live", reconnecting: "Reconnecting", unavailable: "Unavailable",
+  connecting: "Connecting", connected: "Live", reconnecting: "Reconnecting...", unavailable: "Unavailable",
 };
 function AnalysisRow({ analysis, selected }: { analysis: List["analyses"][number]; selected: boolean }) {
   const stale = useStaleRun(analysis.updated_at, isFinished(analysis.stage), analysis.stale);
   const progress = progressPayload({ stage: analysis.stage, message: analysis.stage_message });
   return <li data-selected={selected}>
     <Link href={`/analyses/${analysis.id}`} prefetch={false} aria-current={selected ? "page" : undefined}><code>{analysis.projects.repository_url.replace(/^https:\/\/github\.com\//, "")}</code></Link>
-    <span className="analysis-status" data-status={stale ? "stale" : analysis.status}>{stale ? "Stale · " : ""}{progress ? stageNames[progress.stage] : analysis.status}</span>
+    <span className="analysis-status" data-status={stale ? "stale" : analysis.status}>{stale ? "Stale: " : ""}{progress ? stageNames[progress.stage] : analysis.status}</span>
     <time dateTime={analysis.created_at}>{new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(analysis.created_at))} UTC</time>
     <p className="analysis-message">{stale ? "No progress for five minutes. The process may have stopped." : analysis.stage_message}</p>
   </li>;

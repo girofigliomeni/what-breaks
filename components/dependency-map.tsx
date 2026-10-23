@@ -37,7 +37,7 @@ function ModulePanel({ id, data }: NodeProps<ModuleNode>) {
       onPointerLeave={() => hover.setPath(null)}
     >
       <button className="module-header nodrag" onClick={() => { setScrollTop(0); data.toggle(); }} aria-expanded={data.open} title={data.id}>
-        <span className="module-label">{data.open ? "−" : "+"} {data.label}</span>
+        <span className="module-label">{data.open ? "-" : "+"} {data.label}</span>
         <span className="module-count">{data.category ? `${data.files.filter(file => fileExtension(file.path) === data.category).length} / ${data.files.length} matched` : `${data.files.length} files`}</span>
         <span className="module-degrees"><span>In {data.fanIn}</span><span>Out {data.fanOut}</span></span>
       </button>
@@ -60,7 +60,7 @@ function ModulePanel({ id, data }: NodeProps<ModuleNode>) {
 }
 const nodeTypes = { module: ModulePanel };
 
-function Canvas({ result, name }: { result: ParseResult; name: string }) {
+function Canvas({ result, name, commit }: { result: ParseResult; name: string; commit?: string | null }) {
   const { files, edges } = result;
   const folded = useMemo(() => foldFiles(files, edges), [files, edges]);
   const [category, setCategory] = useState<string | null>(null);
@@ -150,13 +150,13 @@ function Canvas({ result, name }: { result: ParseResult; name: string }) {
   }, [initialized, fitPending, nodes, flow]);
 
   return <HoverContext.Provider value={hoverState}><MapShell files={files} category={category} setCategory={setCategory} details={<DetailPane result={result} name={name} selection={selection} modules={folded.modules} hovered={hovered} select={selectFile} hover={setHovered} />}><div className="graph-surface">
-    <div className="graph-caption">{name} · {files.length} files · {folded.modules.length} modules</div>
+    <div className="graph-caption"><span>{name}, {files.length} files, {folded.modules.length} modules</span>{commit ? <span className="graph-commit">Commit <code title={commit}>{commit.slice(0, 7)}</code></span> : null}</div>
     <ReactFlow<ModuleNode> nodes={nodes} edges={lines} nodeTypes={nodeTypes} minZoom={0.05} maxZoom={2} nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} onPaneClick={() => setSelection(null)} onNodeClick={(_, node) => setSelection(node.id)} proOptions={{ hideAttribution: true }}>
       <Controls showInteractive={false} />
     </ReactFlow>
   </div></MapShell></HoverContext.Provider>;
 }
 
-export function DependencyMap(props: { result: ParseResult; name: string }) {
+export function DependencyMap(props: { result: ParseResult; name: string; commit?: string | null }) {
   return <ReactFlowProvider><Canvas {...props} /></ReactFlowProvider>;
 }

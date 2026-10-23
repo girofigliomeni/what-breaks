@@ -28,8 +28,7 @@ export default async function AnalysisPage({ params }: { params: Promise<{ id: s
   }
   const result = validateResult(await getStoredResult(id));
   return <div className="analysis-explorer">
-    <AnalysisContext repository={name} view="Map" commit={analysis.commit_sha} />
     <CoverageBanner coverage={result.coverage} />
-    <DependencyMap key={id} result={result} name={name} />
+    <DependencyMap key={id} result={result} name={name} commit={analysis.commit_sha} />
   </div>;
 }

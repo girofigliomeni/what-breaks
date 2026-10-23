@@ -16,6 +16,9 @@ above the map instead of occupying another column. A reserved questions panel si
 beneath the map and details. Home deliberately selects nothing, even when completed
 analyses exist, and shows instructions inside a bordered canvas. The sidebar places
 its labelled live-status indicator opposite the Analyses heading.
+Desktop uses the available viewport height, with matching panel heading heights.
+Details scroll within their panel so the questions section stays visible. The
+coverage disclosure has a separated arrow and plain punctuation in its text.
 
 Repository links update the URL through Next navigation and mark the active row,
 so bookmarks and browser Back/Forward restore selection. Switching repositories
