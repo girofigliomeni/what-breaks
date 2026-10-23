@@ -8,6 +8,7 @@ declare
   result jsonb := '{"version":1,"files":[{"path":"main.ts"}],"edges":[],"imports":[],"coverage":{}}';
 begin
   if has_function_privilege('anon','public.retry_analysis(uuid)','execute')
+    or has_function_privilege('authenticated','public.retry_analysis(uuid)','execute')
     or has_function_privilege('anon','public.remove_analysis(uuid)','execute')
     or has_function_privilege('authenticated','public.complete_analysis_run(uuid,jsonb,uuid)','execute') then
     raise exception 'Lifecycle functions have excessive execution privileges'; end if;
@@ -17,16 +18,27 @@ begin
   select run_id into strict original_run from public.analyses where id=target_id;
   begin
     perform public.retry_analysis(target_id);
+    raise exception 'Client retry mutation accepted';
+  exception when insufficient_privilege then null;
+  end;
+  reset role;
+  set local role service_role;
+  begin
+    perform public.retry_analysis(target_id);
     raise exception 'Active retry accepted';
   exception when raise_exception then
     if sqlerrm <> 'Only failed or stale analyses can be retried' then raise; end if;
   end;
+  reset role;
+  set local role authenticated;
   begin
     perform public.remove_analysis(target_id);
     raise exception 'Active removal accepted';
   exception when raise_exception then
     if sqlerrm <> 'An active analysis cannot be removed' then raise; end if;
   end;
+  reset role;
+  set local role service_role;
   update public.analyses set status='failed',stage='failed',failed_stage='fetching',failure_message='Fixture failure' where id=target_id;
   select run_id into strict retry_run from public.retry_analysis(target_id);
   if retry_run=original_run then raise exception 'Retry reused the old run identity'; end if;
@@ -54,7 +66,7 @@ begin
   begin
     perform public.retry_analysis(target_id);
     raise exception 'Foreign retry accepted';
-  exception when no_data_found then null;
+  exception when insufficient_privilege then null;
   end;
   begin
     perform public.remove_analysis(target_id);
@@ -66,19 +78,29 @@ begin
   reset role;
   perform set_config('request.jwt.claims', '{"role":"authenticated","o":{"id":"lifecycle-verification-a"}}', true);
   set local role authenticated;
+  -- Authorization remains a policy-driven read before the server writer retries.
+  if not exists(select 1 from public.analyses where id=target_id) then raise exception 'Own retry authorization failed'; end if;
+  reset role;
+  set local role service_role;
   begin
     perform public.retry_analysis(target_id);
     raise exception 'Completed retry accepted';
   exception when raise_exception then
     if sqlerrm <> 'Only failed or stale analyses can be retried' then raise; end if;
   end;
+  reset role;
+  set local role authenticated;
   perform public.remove_analysis(target_id);
   if exists(select 1 from public.analyses where id=target_id) or exists(select 1 from public.files where files.analysis_id=target_id) then
     raise exception 'Removal did not cascade'; end if;
   select id into strict target_id from public.begin_analysis('https://github.com/verification/lifecycle');
+  reset role;
+  set local role service_role;
   update public.analyses set status='running',updated_at=now()-interval '6 minutes' where id=target_id;
   perform public.retry_analysis(target_id);
   update public.analyses set updated_at=now()-interval '6 minutes' where id=target_id;
+  reset role;
+  set local role authenticated;
   perform public.remove_analysis(target_id);
   reset role;
 end $$;

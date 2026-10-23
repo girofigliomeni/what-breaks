@@ -63,4 +63,28 @@ await assert.rejects(foreignWriter.begin("https://github.com/verification/foreig
 const reusedWriter = analysisStore(organization, submission(analysis, false));
 assert.equal((await reusedWriter.begin("https://github.com/verification/secret-writer")).created, false);
 await assert.rejects(reusedWriter.stage(analysis, "parsing", "Must not overwrite"), /not bound/);
-console.log("Secret writer: real database completion/failure without reuse of the submission token; foreign IDs, foreign organizations, repeat starts and existing-analysis writes rejected.");
+
+// The authorization read is simulated, while retry/reset and subsequent writes
+// use the real database. SQL checks separately exercise the actual read policies.
+function retryAuthorization(id: string, visibleOrganization?: string) {
+  return createClient<Database>(config.url, config.key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    accessToken: async () => {
+      if (expired) throw new Error("Submission token expired");
+      return "simulated-submission-token";
+    },
+    global: { fetch: async () => visibleOrganization
+      ? Response.json({ id, organization_id: visibleOrganization })
+      : Response.json({ message: "Row unavailable under RLS" }, { status: 406 }) },
+  });
+}
+expired = false;
+await assert.rejects(analysisStore(organization, retryAuthorization(foreignAnalysis)).retry(foreignAnalysis), /not authorized/);
+await assert.rejects(analysisStore(organization, retryAuthorization(foreignAnalysis, "another-organization")).retry(foreignAnalysis), /not authorized/);
+await assert.rejects(analysisStore(organization, retryAuthorization(analysis, organization)).retry(analysis), /Only failed or stale/);
+const retryWriter = analysisStore(organization, retryAuthorization(failureAnalysis, organization));
+assert.equal((await retryWriter.retry(failureAnalysis)).id, failureAnalysis);
+expired = true;
+await retryWriter.stage(failureAnalysis, "parsing", "Retry continued after submission token expiry.");
+await retryWriter.fail(failureAnalysis, "parsing", "Retry writer verification complete.");
+console.log("Secret writer: completion, failure and authorized retry persist without the submission token; unauthorized retry, foreign organizations and existing-analysis writes rejected.");

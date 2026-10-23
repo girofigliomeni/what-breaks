@@ -10,12 +10,19 @@ completion or failure writes. No GitHub token or package installation is needed.
 
 Failed or stale rows offer Retry. Completed, failed and stale rows offer Remove
 with an organization-wide deletion confirmation. Active runs offer neither.
-Retry locks and resets the existing row under RLS, replacing its run identity.
+Retry reads the requested row under RLS, then the server-only writer checks the
+captured organization before locking and resetting it with a new run identity.
 The server writer binds that identity for every update and atomic completion,
 so an older process cannot overwrite the retry. Removal also runs under RLS,
 checks the current state under a row lock, cascades stored graph data, and
 broadcasts a list refresh. Removing the selected analysis navigates home.
 The project record remains so the repository can be submitted again.
+
+Authenticated pipeline updates, graph writes and completion execution are
+revoked by the follow-up restriction migration. Submission retains its RLS
+insert path with only organization/project columns on analyses. Completion and
+retry mutation execute as service_role. Removal still uses authenticated RLS
+and its DELETE policy rechecks eligibility when taking the row lock.
 
 `supabase/verify-lifecycle.sql` checks lifecycle eligibility, duplicate retries,
 run replacement, cascaded removal and cross-organization rejection in a rolled

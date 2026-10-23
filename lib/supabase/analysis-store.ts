@@ -52,7 +52,13 @@ export function analysisStore(organizationId: string, submissionClient: Supabase
     async retry(id) {
       if (started) throw new Error("A writer can start only one analysis.");
       started = true;
-      const { data, error } = await submissionClient.rpc("retry_analysis", { analysis_id: id }).single();
+      // RLS authorizes the requested row before the privileged mutation. The
+      // captured organization must also match before any reset is performed.
+      const { data: authorized, error: authorizationError } = await submissionClient.from("analyses")
+        .select("id, organization_id").eq("id", id).single();
+      if (authorizationError || !authorized || authorized.organization_id !== organizationId)
+        throw new Error("The retry is not authorized for the captured organization.");
+      const { data, error } = await client.rpc("retry_analysis", { analysis_id: authorized.id }).single();
       if (error) throw new Error(`Could not retry analysis: ${error.message}`);
       const { error: ownershipError } = await client.from("analyses").select("id")
         .eq("organization_id", organizationId).eq("id", data.id).eq("run_id", data.run_id).single();

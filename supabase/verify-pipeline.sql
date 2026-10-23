@@ -14,6 +14,40 @@ begin
   select id, created into strict first_id, first_created from public.begin_analysis('https://github.com/verification/pipeline');
   select id, created into strict second_id, second_created from public.begin_analysis('https://github.com/verification/pipeline');
   if not first_created or second_created or first_id <> second_id then raise exception 'Repository deduplication failed'; end if;
+  begin
+    update public.analyses set status='completed',parser_result=result where id=first_id;
+    raise exception 'Client pipeline update was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.analyses set run_id=gen_random_uuid() where id=first_id;
+    raise exception 'Client run replacement was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.files(organization_id,analysis_id,path) values ('pipeline-verification-a',first_id,'forged.ts');
+    raise exception 'Client file insertion was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.edges(organization_id,analysis_id,source_file_id,target_file_id)
+      values ('pipeline-verification-a',first_id,gen_random_uuid(),gen_random_uuid());
+    raise exception 'Client edge insertion was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.complete_analysis(first_id,result);
+    raise exception 'Client completion was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    insert into public.analyses(organization_id,project_id,status)
+      select organization_id,project_id,'completed' from public.analyses where id=first_id;
+    raise exception 'Client pipeline state insertion was accepted';
+  exception when insufficient_privilege then null;
+  end;
+  reset role;
+  set local role service_role;
   update public.analyses set status='running',stage='storing',commit_sha=repeat('a',40) where id=first_id;
   -- An invalid edge rolls back the inserted file as well as the completion.
   begin
@@ -30,8 +64,11 @@ begin
   perform set_config('request.jwt.claims', '{"role":"authenticated","org_id":"pipeline-verification-b"}', true);
   set local role authenticated;
   if exists(select 1 from public.analyses where id=first_id) then raise exception 'Another organization can read the analysis'; end if;
-  update public.analyses set stage_message='foreign update' where id=first_id;
-  if found then raise exception 'Another organization can update the analysis'; end if;
+  begin
+    update public.analyses set stage_message='foreign update' where id=first_id;
+    raise exception 'Another organization can update the analysis';
+  exception when insufficient_privilege then null;
+  end;
   begin
     insert into public.files(organization_id,analysis_id,path) values ('pipeline-verification-a',first_id,'foreign.ts');
     raise exception 'Foreign insert was accepted';

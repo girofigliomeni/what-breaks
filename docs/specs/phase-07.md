@@ -58,6 +58,9 @@
 ## Constraints
 
 - Submission authenticates with Clerk and creates/reuses the analysis under RLS.
+  Authenticated clients cannot update pipeline state, insert graph rows or call
+  completion. Retry authorizes its row under RLS before the server-only writer
+  resets it. Submission keeps only the insert columns needed by begin_analysis.
   A single server-only writer may then use the Supabase secret key, bound to the
   captured organization, explicitly created or retried analysis, and run identity, so token expiry cannot stop
   progress, completion or failure writes. Merely reused analyses are not writable through
