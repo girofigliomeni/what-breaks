@@ -21,6 +21,8 @@ const deepEdges: Edge[] = deep.map((file, index) => ({ source: file.path, target
 assert.equal(importCycles(deep, deepEdges)[0].length, 20001);
 for (const path of ["app/page.tsx", "src/app/api/test/route.ts", "app/layout.tsx", "pages/index.tsx", "src/pages/api/example.ts", "middleware.ts", "src/proxy.ts", "next.config.mjs"]) assert.equal(isFrameworkEntry(path), true, path);
 assert.equal(isFrameworkEntry("lib/page.ts"), false);
+for (const path of ["lib/middleware.ts", "lib/proxy.ts", "lib/instrumentation.ts", "lib/instrumentation-client.ts", "lib/cache.config.ts", "cache.config.ts", "lib/next.config.ts", "src/next.config.ts"]) assert.equal(isFrameworkEntry(path), false, path);
+for (const path of ["next.config.js", "next.config.ts", "src/middleware.ts", "instrumentation.ts", "src/instrumentation-client.ts"]) assert.equal(isFrameworkEntry(path), true, path);
 const many: ParsedFile[] = Array.from({ length: 30 }, (_, index) => ({ ...files[0], path: `${index}.ts`, lines: index === 0 ? 500 : 499 }));
 const manyEdges: Edge[] = many.slice(1, 7).map(file => ({ source: file.path, target: "0.ts", kinds: ["import"] }));
 assert.deepEqual(graphFacts(many, manyEdges).heavilyImported, ["0.ts"]);

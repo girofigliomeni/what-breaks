@@ -3,8 +3,8 @@
 // excludes them from "nothing imports" insights without claiming they are unused.
 export function isFrameworkEntry(path: string): boolean {
   const name = path.split("/").at(-1) ?? path;
-  if (fileRole(path) === "Configuration") return true;
-  if (/^(middleware|proxy|instrumentation|instrumentation-client)\.[cm]?[jt]sx?$/.test(name)) return true;
+  if (/^next\.config\.(js|mjs|ts)$/.test(path)) return true;
+  if (/^(src\/)?(middleware|proxy|instrumentation|instrumentation-client)\.[cm]?[jt]sx?$/.test(path)) return true;
   if (/^(src\/)?pages\/.*\.[cm]?[jt]sx?$/.test(path)) return true;
   return /^(src\/)?app\//.test(path) && /^(page|route|layout|template|default|loading|error|global-error|not-found|global-not-found|forbidden|unauthorized|sitemap|robots|manifest|icon|apple-icon|opengraph-image|twitter-image)\.[cm]?[jt]sx?$/.test(name);
 }
