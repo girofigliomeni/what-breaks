@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ClerkProvider, Show } from "@clerk/nextjs";
+import { ClerkProvider, OrganizationSwitcher, Show } from "@clerk/nextjs";
 import Link from "next/link";
 import { AccountButton } from "@/components/account-button";
 import { Suspense } from "react";
@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "What Breaks",
+  title: "What Breaks.",
   description: "Explore the structure of your team's code.",
 };
 
@@ -64,16 +64,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             Skip to content
           </a>
           <header className="app-header">
-            <Link className="brand" href="/">
-              What Breaks
-            </Link>
+            <Link className="brand" href="/" aria-label="What Breaks. home">What Breaks.</Link>
             <div className="header-controls">
-              <nav aria-label="Account" className="account-controls">
+              <nav aria-label="Organization and account" className="account-controls">
                 <Suspense>
                   <Show when="signed-out">
                     <Link href="/sign-in">Sign in</Link>
                   </Show>
                   <Show when="signed-in">
+                    <OrganizationSwitcher hidePersonal afterSelectOrganizationUrl="/" afterCreateOrganizationUrl="/" afterLeaveOrganizationUrl="/" />
                     <AccountButton />
                   </Show>
                 </Suspense>

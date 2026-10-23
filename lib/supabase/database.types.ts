@@ -18,26 +18,44 @@ export type Database = {
         Row: {
           commit_sha: string | null
           created_at: string
+          failed_stage: string | null
+          failure_message: string | null
           id: string
           organization_id: string
+          parser_result: Json | null
           project_id: string
+          stage: string
+          stage_message: string
           status: string
+          updated_at: string
         }
         Insert: {
           commit_sha?: string | null
           created_at?: string
+          failed_stage?: string | null
+          failure_message?: string | null
           id?: string
           organization_id: string
+          parser_result?: Json | null
           project_id: string
+          stage?: string
+          stage_message?: string
           status?: string
+          updated_at?: string
         }
         Update: {
           commit_sha?: string | null
           created_at?: string
+          failed_stage?: string | null
+          failure_message?: string | null
           id?: string
           organization_id?: string
+          parser_result?: Json | null
           project_id?: string
+          stage?: string
+          stage_message?: string
           status?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -50,7 +68,7 @@ export type Database = {
           {
             foreignKeyName: "analyses_organization_id_project_id_fkey"
             columns: ["organization_id", "project_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "projects"
             referencedColumns: ["organization_id", "id"]
           },
@@ -377,7 +395,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      begin_analysis: {
+        Args: { repository_url: string }
+        Returns: {
+          created: boolean
+          id: string
+        }[]
+      }
+      complete_analysis: {
+        Args: { analysis_id: string; result: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
