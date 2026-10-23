@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import { mkdtemp, mkdir, writeFile, rename } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { parseRepository } from "../parser/index.mts";
+import { validateResult, writeResult, readResult } from "../parser/contract.mts";
+
+const fixture = await mkdtemp(path.join(tmpdir(), "what-breaks-parser-"));
+await mkdir(path.join(fixture, "src/nested"), { recursive: true });
+await writeFile(path.join(fixture, "tsconfig.json"), JSON.stringify({ compilerOptions: { baseUrl: ".", paths: { "@/*": ["src/*"] } } }));
+await writeFile(path.join(fixture, "src/nested/leaf.ts"), "export const value = 1;\n");
+await writeFile(path.join(fixture, "src/index.ts"), "export * from './nested/leaf.js';\n");
+await writeFile(path.join(fixture, "src/main.ts"), "import {value} from '@/index';\nimport {value as again} from '@/index';\nexport {value} from '@/index';\nvoid import('./nested/leaf');\n");
+const parsed = validateResult(await parseRepository(fixture));
+assert.equal(parsed.coverage.imports.resolved, 5);
+assert.equal(parsed.edges.length, 3);
+assert.equal(parsed.files.find((file) => file.path === "src/main.ts")?.fanOut, 2);
+assert.equal(parsed.files.find((file) => file.path === "src/nested/leaf.ts")?.fanIn, 2);
+assert.equal(parsed.files.find((file) => file.path === "src/nested/leaf.ts")?.folder, "src/nested");
+const output = path.join(fixture, "result.json");
+await writeResult(output, parsed);
+assert.deepEqual(await readResult(output), parsed);
+const corrupt = structuredClone(parsed);
+corrupt.files[0].folder = "wrong";
+assert.throws(() => validateResult(corrupt), /Incorrect folder/);
+const corruptEdge = structuredClone(parsed);
+corruptEdge.edges[0].target = "missing.ts";
+assert.throws(() => validateResult(corruptEdge));
+
+const renameFixture = await mkdtemp(path.join(tmpdir(), "what-breaks-rename-"));
+await writeFile(path.join(renameFixture, "entry.ts"), "import { value } from './target';\n");
+await writeFile(path.join(renameFixture, "target.ts"), "export const value = 1;\n");
+assert.equal((await parseRepository(renameFixture)).coverage.imports.unresolved, 0);
+await rename(path.join(renameFixture, "target.ts"), path.join(renameFixture, "renamed.ts"));
+const renamed = validateResult(await parseRepository(renameFixture));
+assert.equal(renamed.coverage.imports.unresolved, 1);
+assert.equal(renamed.edges.length, 0);
+console.log(`Rename check: ${renamed.imports[0].source}:${renamed.imports[0].line} ${renamed.imports[0].reason}`);
+
+const coverageFixture = await mkdtemp(path.join(tmpdir(), "what-breaks-coverage-"));
+await mkdir(path.join(coverageFixture, "dist"));
+await writeFile(path.join(coverageFixture, "dist/generated.ts"), "export const generated = 1;");
+await writeFile(path.join(coverageFixture, "asset.css"), "body {}");
+await writeFile(path.join(coverageFixture, "broken.ts"), "export const = ;");
+await writeFile(path.join(coverageFixture, "entry.ts"), "import './asset.css';\nimport './dist/generated';\nimport './broken';\nimport 'node:fs';\nconst name = 'x'; void import(name);\n");
+const coverage = validateResult(await parseRepository(coverageFixture));
+assert.deepEqual(coverage.coverage.imports, { resolved: 0, excluded: 3, external: 1, unresolved: 1 });
+assert.equal(coverage.coverage.filesSkipped, 2);
+assert.equal(coverage.coverage.excludedDirectories.length, 1);
+console.log("Passed aliases, JS extension substitution, all three edge kinds, deduplication, fan-in/out, folders, skips, exclusions, syntax errors, nonliteral imports and JSON round trip.");
+console.log(`Fixtures retained at ${fixture}, ${renameFixture}, ${coverageFixture}`);
+
+const barrelDirectory = process.argv[2];
+if (barrelDirectory) {
+  const result = validateResult(await parseRepository(barrelDirectory));
+  const reexports = result.imports.filter((item) => item.kind === "re-export");
+  assert.ok(result.files.length > 300);
+  assert.ok(new Set(result.files.map((file) => file.folder)).size >= 24);
+  assert.ok(reexports.length > 0);
+  const filename = path.join(fixture, "barrels.json");
+  await writeResult(filename, result);
+  assert.deepEqual(await readResult(filename), result);
+  console.log(JSON.stringify({ filesFound: result.coverage.filesFound, parsed: result.files.length, skipped: result.coverage.filesSkipped, folders: new Set(result.files.map((file) => file.folder)).size, reexportsFound: reexports.length, reexportsResolved: reexports.filter((item) => item.status === "resolved").length, gaps: reexports.filter((item) => item.status !== "resolved"), output: filename }, null, 2));
+}
