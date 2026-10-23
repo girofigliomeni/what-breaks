@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.19",
+    "@dagrejs/dagre": "^3.1.1",
     "@supabase/supabase-js": "2.118.0",
+    "@xyflow/react": "^12.12.0",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -20,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/dagre": "^0.7.54",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

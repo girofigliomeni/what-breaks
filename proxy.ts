@@ -4,8 +4,9 @@ export default clerkMiddleware(async (auth, request) => {
   const path = request.nextUrl.pathname;
   const isAuthRoute = path === "/sign-in" || path.startsWith("/sign-in/") || path === "/sign-up" || path.startsWith("/sign-up/");
   const isSessionTask = path === "/session-tasks/choose-organization";
+  const isPreview = path === "/preview";
   // A streamed component can already have sent HTML; gate protected requests before rendering.
-  if (!isAuthRoute && !isSessionTask) await auth.protect();
+  if (!isAuthRoute && !isSessionTask && !isPreview) await auth.protect();
 }, { signInUrl: "/sign-in", signUpUrl: "/sign-up" });
 
 export const config = {

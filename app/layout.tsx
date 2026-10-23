@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
+import { ClerkProvider, Show } from "@clerk/nextjs";
 import Link from "next/link";
-import { ThemeControl } from "@/components/theme-control";
+import { AccountButton } from "@/components/account-button";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -68,14 +68,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               What Breaks
             </Link>
             <div className="header-controls">
-              <ThemeControl />
               <nav aria-label="Account" className="account-controls">
                 <Suspense>
                   <Show when="signed-out">
                     <Link href="/sign-in">Sign in</Link>
                   </Show>
                   <Show when="signed-in">
-                    <UserButton />
+                    <AccountButton />
                   </Show>
                 </Suspense>
               </nav>
