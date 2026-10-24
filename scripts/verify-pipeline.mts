@@ -102,6 +102,10 @@ try {
     await analyseRepository("https://github.com/owner/missing", store);
     assert.equal(failed?.stage, "fetching");
     assert.match(failed?.message ?? "", /not found or is not public/);
+    globalThis.fetch = async () => { throw new DOMException("Timed out", "TimeoutError"); };
+    await analyseRepository("https://github.com/owner/repo", store);
+    assert.equal(failed?.stage, "fetching");
+    assert.match(failed?.message ?? "", /GitHub commit lookup timed out after 60 seconds/);
     globalThis.fetch = async (input) => String(input).startsWith("https://api.github.com/") ? Response.json({ sha: commit }) : new Response(Uint8Array.from(archive));
     failStorage = true;
     await analyseRepository("https://github.com/owner/repo", store);

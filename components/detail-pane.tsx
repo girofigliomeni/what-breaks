@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { fileExtension, fileRole, isFrameworkEntry } from "@/adapters/file-conventions.mts";
+import { memo, useMemo, useState } from "react";
+import { fileExtension } from "@/adapters/file-conventions.mts";
+import { roleOf } from "@/adapters/taxonomy.mts";
 import { graphFacts, graphIndex, walkGraph } from "@/lib/graph-maths.mts";
 import type { ParseResult } from "@/parser/types.mts";
 import type { foldFiles } from "@/lib/folding.mts";
+import { DetailPathList } from "./detail-path-list";
 
 type Props = {
   result: ParseResult;
@@ -16,19 +18,30 @@ type Props = {
   hover: (path: string | null) => void;
 };
 
+const PathButton = memo(function PathButton({ path, highlighted, select, hover }: {
+  path: string; highlighted: boolean; select: Props["select"]; hover: Props["hover"];
+}) {
+  return <button className="detail-path" data-highlighted={highlighted} onClick={() => select(path)} onMouseEnter={() => hover(path)} onMouseLeave={() => hover(null)} onFocus={() => hover(path)} onBlur={() => hover(null)}>{path}</button>;
+});
+
 export function DetailPane({ result, name, selection, modules, hovered, select, hover }: Props) {
   const [tab, setTab] = useState<"Structure" | "Explanation">("Structure");
   const [walk, setWalk] = useState<"incoming" | "outgoing" | null>(null);
   const [depth, setDepth] = useState(2);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const index = useMemo(() => graphIndex(result.files, result.edges), [result]);
   const facts = useMemo(() => graphFacts(result.files, result.edges), [result]);
-  const unimported = useMemo(() => facts.unimported.filter(path => !isFrameworkEntry(path)), [facts]);
+  const unimported = useMemo(() => {
+    const entries = new Set(result.files.filter(file => file.entry).map(file => file.path));
+    return facts.unimported.filter(path => !entries.has(path));
+  }, [facts, result.files]);
   const walked = useMemo(() => selection && walk ? walkGraph(result.files, result.edges, selection, walk, depth) : [], [result, selection, walk, depth]);
   const file = result.files.find(file => file.path === selection);
   const folder = file ? undefined : modules.find(module => module.id === selection);
-  const ranked = [...result.files].sort((a, b) => (index.incoming.get(b.path)?.size ?? 0) - (index.incoming.get(a.path)?.size ?? 0) || a.path.localeCompare(b.path));
-  const pathButton = (path: string) => <button className="detail-path" data-highlighted={hovered === path || modules.some(module => module.id === hovered && module.files.some(file => file.path === path))} onClick={() => select(path)} onMouseEnter={() => hover(path)} onMouseLeave={() => hover(null)} onFocus={() => hover(path)} onBlur={() => hover(null)}>{path}</button>;
-  const paths = (title: string, entries: string[], counts = false, description?: string) => <section className="detail-section"><h3>{title} <span>{entries.length}</span></h3>{description && <p className="detail-insight-description">{description}</p>}{entries.length ? <ol className="detail-paths">{entries.map(path => <li key={path}>{pathButton(path)}{counts && <span className="detail-count">{index.incoming.get(path)?.size ?? 0}</span>}</li>)}</ol> : <p className="detail-note">None.</p>}</section>;
+  const ranked = useMemo(() => [...result.files].sort((a, b) => (index.incoming.get(b.path)?.size ?? 0) - (index.incoming.get(a.path)?.size ?? 0) || a.path.localeCompare(b.path)), [result.files, index]);
+  const highlighted = useMemo(() => new Set(modules.find(module => module.id === hovered)?.files.map(file => file.path) ?? (hovered ? [hovered] : [])), [modules, hovered]);
+  const pathButton = (path: string) => <PathButton path={path} highlighted={highlighted.has(path)} select={select} hover={hover} />;
+  const paths = (title: string, entries: string[], counts = false, description?: string) => <section className="detail-section"><h3>{title} <span>{entries.length}</span></h3>{description && <p className="detail-insight-description">{description}</p>}{entries.length ? <DetailPathList key={`${selection ?? "repository"}:${title}`} entries={entries} renderPath={pathButton} incoming={counts ? index.incoming : undefined} /> : <p className="detail-note">None.</p>}</section>;
   const extensionCounts = new Map<string, number>();
   for (const entry of folder?.files ?? []) {
     const extension = fileExtension(entry.path);
@@ -43,7 +56,7 @@ export function DetailPane({ result, name, selection, modules, hovered, select, 
     <div className="detail-content" id="detail-content" role={selected ? "tabpanel" : undefined} aria-labelledby={selected ? `tab-${tab}` : undefined}>
       {state === "explanation" ? <p className="detail-note">No explanation yet. An explanation will appear here after a model call.</p> : file ? <>
         <h2 className="detail-title">{pathButton(file.path)}</h2>
-        <dl className="detail-facts"><dt>Kind</dt><dd>{kindLabel(fileExtension(file.path))}</dd><dt>Length</dt><dd>{file.lines} lines</dd><dt>Depends on</dt><dd className="detail-outgoing">{index.outgoing.get(file.path)?.size ?? 0}</dd><dt>Depended on by</dt><dd className="detail-incoming">{index.incoming.get(file.path)?.size ?? 0}</dd></dl>
+        <dl className="detail-facts"><dt>Kind</dt><dd>{kindLabel(fileExtension(file.path))}</dd><dt>Role</dt><dd>{roleOf(file)}</dd><dt>Length</dt><dd>{file.lines} lines</dd><dt>Depends on</dt><dd className="detail-outgoing">{index.outgoing.get(file.path)?.size ?? 0}</dd><dt>Depended on by</dt><dd className="detail-incoming">{index.incoming.get(file.path)?.size ?? 0}</dd></dl>
         <div className="detail-walk-controls">
           <button aria-pressed={walk === "incoming"} onClick={() => setWalk("incoming")}>Blast radius</button>
           <button aria-pressed={walk === "outgoing"} onClick={() => setWalk("outgoing")}>Dependency chain</button>
@@ -58,17 +71,21 @@ export function DetailPane({ result, name, selection, modules, hovered, select, 
         {paths("Files", folder.files.map(file => file.path))}
       </> : <>
         <h2 className="detail-title">{name}</h2>
-        <dl className="detail-facts"><dt>Framework</dt><dd>Not detected</dd><dt>Files</dt><dd>{result.files.length}</dd><dt>Imports</dt><dd>{result.imports.length}</dd><dt>Routes</dt><dd>Unavailable</dd><dt>Unidentified roles</dt><dd>{result.files.filter(file => fileRole(file.path) === "Unidentified").length}</dd></dl>
-        <p className="detail-note">Languages use file extensions. Roles use filename conventions. Framework and route detection are unavailable in this parse.</p>
+        <dl className="detail-facts"><dt>Framework</dt><dd>{result.adapter === "none" ? "Not detected" : result.adapter}</dd><dt>Files</dt><dd>{result.files.length}</dd><dt>Imports</dt><dd>{result.imports.length}</dd><dt>Routes</dt><dd>{result.routes?.length ?? 0}</dd><dt>Unidentified roles</dt><dd>{result.files.filter(file => roleOf(file) === "Unidentified").length}</dd></dl>
+        <section className="detail-section"><h3>Routes <span>{result.routes?.length ?? 0}</span></h3>
+          {result.routes?.length ? <div className="route-table-scroll"><table className="route-table"><thead><tr><th>Method</th><th>Pattern</th><th>File</th></tr></thead><tbody>{result.routes.map((route, index) => <tr key={`${route.file}:${route.line}:${route.method}:${route.pattern}:${index}`}><td>{route.method}</td><td><code>{route.pattern}</code></td><td>{pathButton(route.file)}<span className="detail-note">:{route.line}</span></td></tr>)}</tbody></table></div> : <p className="detail-note">No recoverable routes.</p>}
+        </section>
         {paths("Most depended on", ranked.filter(file => (index.incoming.get(file.path)?.size ?? 0) > 0).map(file => file.path), true)}
         {paths("Start reading", ranked.filter(file => index.incoming.get(file.path)?.size === 0).map(file => file.path))}
       </>}
-      <details className="detail-insights">
+      <details className="detail-insights" onToggle={event => setInsightsOpen(event.currentTarget.open)}>
         <summary>Insights</summary>
+        {insightsOpen && <>
         {paths("Files nothing imports", unimported, false, "Nothing in the resolved import graph imports these files.")}
         {paths("Frequently imported", facts.heavilyImported, true, "An unusual number of files import these files.")}
         <section className="detail-section"><h3>Import cycles <span>{facts.cycles.length}</span></h3><p className="detail-insight-description">These imports form a cycle.</p>{facts.cycles.length ? facts.cycles.map((cycle, index) => <ol className="detail-paths" aria-label={`Import cycle ${index + 1}, each file imports the next`} key={JSON.stringify(cycle)}>{cycle.map((path, step) => <li key={`${step}:${path}`}>{pathButton(path)}</li>)}</ol>) : <p className="detail-note">None.</p>}</section>
         {paths("Long files", facts.long, false, "These files contain at least 500 lines.")}
+        </>}
       </details>
     </div>
   </div>;

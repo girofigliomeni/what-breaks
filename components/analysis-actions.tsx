@@ -4,8 +4,8 @@ import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { changeAnalysis } from "@/app/analyses/actions";
 
-export function AnalysisActions({ id, name, retryable, selected, removed }: {
-  id: string; name: string; retryable: boolean; selected: boolean; removed: (id: string) => void;
+export function AnalysisActions({ id, name, retryable, selected, removed, retried }: {
+  id: string; name: string; retryable: boolean; selected: boolean; removed: (id: string) => void; retried: () => Promise<void>;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -22,7 +22,10 @@ export function AnalysisActions({ id, name, retryable, selected, removed }: {
         if (operation === "remove") {
           removed(id);
           if (selected) router.replace("/");
-        } else router.push(`/analyses/${id}`);
+        } else {
+          await retried();
+          router.push(`/analyses/${id}`);
+        }
         router.refresh();
       } catch { setMessage("The request failed. Reload and try again."); }
     });

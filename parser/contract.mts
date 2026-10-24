@@ -26,6 +26,16 @@ export function validateResult(value: unknown): ParseResult {
   const { coverage } = value;
   if (coverage.filesFound !== coverage.filesParsed + coverage.filesSkipped || coverage.filesParsed !== value.files.length || coverage.filesSkipped !== coverage.skipped.length) throw new Error("Invalid file coverage totals.");
   const paths = new Set(value.files.map((file) => file.path));
+  for (const file of value.files) {
+    if (file.role !== undefined && (!text(file.role) || !file.role)) throw new Error("Invalid file role.");
+    if (file.entry !== undefined && typeof file.entry !== "boolean") throw new Error("Invalid file entry marker.");
+  }
+  if (value.routes !== undefined) {
+    if (!Array.isArray(value.routes)) throw new Error("Invalid route table.");
+    for (const route of value.routes) {
+      if (!object(route) || !localPath(route.file) || !paths.has(route.file) || !count(route.line) || route.line < 1 || !text(route.method) || !["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"].includes(route.method) || !text(route.pattern) || !route.pattern.startsWith("/")) throw new Error("Invalid route record.");
+    }
+  }
   if (paths.size !== value.files.length || new Set(coverage.skipped.map((file) => file.path)).size !== coverage.skipped.length || coverage.skipped.some((file) => paths.has(file.path))) throw new Error("Duplicate or conflicting file records.");
   for (const file of value.files) {
     const folder = file.path.includes("/") ? file.path.slice(0, file.path.lastIndexOf("/")) : ".";

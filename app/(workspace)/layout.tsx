@@ -15,10 +15,6 @@ export default async function WorkspaceLayout({ children }: { children: ReactNod
     </Suspense>
     <div className="workspace-content">
       {children}
-      <section className="questions-panel" aria-labelledby="questions-heading">
-        <div className="panel-heading"><h2 id="questions-heading">Repository questions</h2></div>
-        <p>Repository questions are not available yet.</p>
-      </section>
     </div>
   </main>;
 }

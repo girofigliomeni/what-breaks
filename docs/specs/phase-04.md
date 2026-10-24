@@ -28,6 +28,9 @@
   again, stopping at the lowest threshold that lands under roughly two dozen.
   The repository's own shape decides the depth. Nothing is picked in advance.
 - Clicking a folded node opens it.
+- Only one folder stays open. Opening another closes the previous folder.
+  Selecting a file in another folder opens that folder and closes the previous
+  one. Reopened folders start at the top of their file list.
 - **An opened folder becomes a panel, not loose nodes.** It stays one object on
   the canvas — a bordered box with a header carrying the folder's name, how many
   files are in it, and its fan-in and fan-out — and the files appear as rows

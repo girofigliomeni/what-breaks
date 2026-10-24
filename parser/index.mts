@@ -4,24 +4,26 @@ import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { Project, Node, SyntaxKind, ts } from "ts-morph";
 import { calculateGraph } from "./graph.mts";
-import { fallbackAdapter } from "./types.mts";
-import type { ImportKind, ImportRecord, ParseResult, RepositoryAdapter } from "./types.mts";
+import { detectAdapter } from "../adapters/index.mts";
+import type { ImportKind, ImportRecord, ParseResult } from "./types.mts";
 
 const excludedDirectories = new Set(["node_modules", "dist", "build", "out", "coverage"]);
 const sourceExtension = /\.(?:[cm]?[jt]s|[jt]sx)$/i;
 const slash = (value: string) => value.split(path.sep).join("/");
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 
-export async function parseRepository(directory: string, adapter: RepositoryAdapter = fallbackAdapter): Promise<ParseResult> {
+export async function parseRepository(directory: string): Promise<ParseResult> {
   const root = await realpath(directory);
   if (!(await stat(root)).isDirectory()) throw new Error(`Not a directory: ${directory}`);
   const relative = (absolute: string) => slash(path.relative(root, absolute));
   const result: ParseResult = {
-    version: 1, adapter: adapter.name, files: [], edges: [], imports: [],
+    version: 1, adapter: "none", files: [], edges: [], imports: [], routes: [],
     coverage: { filesFound: 0, filesParsed: 0, filesSkipped: 0, skipped: [], excludedDirectories: [], imports: { resolved: 0, external: 0, excluded: 0, unresolved: 0 } },
   };
   const candidates: string[] = [];
   const configs = new Set<string>();
+  const dependencies = new Set<string>();
+  const packages = new Map<string, Set<string>>();
   const skipped = new Map<string, string>();
   async function walk(folder: string): Promise<void> {
     // Unreadable directories fail the run: their unknown contents cannot be counted honestly.
@@ -37,6 +39,18 @@ export async function parseRepository(directory: string, adapter: RepositoryAdap
       if (entry.isSymbolicLink()) skipped.set(name, "Symbolic links are not followed");
       else if (!entry.isFile()) skipped.set(name, "Not a regular file");
       else {
+        if (entry.name === "package.json") {
+          const packageDependencies = new Set<string>();
+          const manifest: unknown = JSON.parse(await readFile(absolute, "utf8"));
+          if (typeof manifest === "object" && manifest !== null) for (const key of ["dependencies", "devDependencies", "peerDependencies"]) {
+            const group: unknown = Reflect.get(manifest, key);
+            if (typeof group === "object" && group !== null && !Array.isArray(group)) for (const dependency of Object.keys(group)) {
+              dependencies.add(dependency);
+              packageDependencies.add(dependency);
+            }
+          }
+          packages.set(relative(folder), packageDependencies);
+        }
         if (entry.name === "tsconfig.json" || entry.name === "jsconfig.json") configs.add(absolute);
         if (sourceExtension.test(entry.name)) candidates.push(absolute);
         else skipped.set(name, "Unsupported file type (only TypeScript and JavaScript become nodes)");
@@ -44,6 +58,8 @@ export async function parseRepository(directory: string, adapter: RepositoryAdap
     }
   }
   await walk(root);
+  const framework = detectAdapter(dependencies);
+  result.adapter = framework.name;
   const defaults: ts.CompilerOptions = { allowJs: true, resolveJsonModule: true, jsx: ts.JsxEmit.Preserve, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, target: ts.ScriptTarget.ESNext, noEmit: true };
   const optionsCache = new Map<string, ts.CompilerOptions>();
   function compilerOptions(file: string): ts.CompilerOptions {
@@ -77,7 +93,7 @@ export async function parseRepository(directory: string, adapter: RepositoryAdap
       if (text.includes("\u0000") || !Buffer.from(text).equals(bytes)) { skipped.set(name, "Source is not valid UTF-8 text"); continue; }
       const source = project.createSourceFile(absolute, text, { overwrite: true });
       const options = compilerOptions(absolute);
-      result.files.push({ path: name, folder: slash(path.dirname(name)), module: adapter.describeFile(name).module, lines: text.length === 0 ? 0 : text.split(/\r\n|\r|\n/).length - (/(?:\r\n|\r|\n)$/.test(text) ? 1 : 0), hash: createHash("sha256").update(bytes).digest("hex"), fanIn: 0, fanOut: 0 });
+      result.files.push({ path: name, folder: slash(path.dirname(name)), module: name, lines: text.length === 0 ? 0 : text.split(/\r\n|\r|\n/).length - (/(?:\r\n|\r|\n)$/.test(text) ? 1 : 0), hash: createHash("sha256").update(bytes).digest("hex"), fanIn: 0, fanOut: 0 });
       sources.push({ absolute, source, options });
     } catch (error) { skipped.set(name, `Cannot parse file: ${message(error)}`); }
   }
@@ -90,6 +106,31 @@ export async function parseRepository(directory: string, adapter: RepositoryAdap
     return false;
   });
   result.files = result.files.filter((file) => !skipped.has(file.path));
+  const sourceByPath = new Map(validSources.map(item => [relative(item.absolute), item.source]));
+  const packageForPath = (name: string): string => {
+    let folder = slash(path.dirname(name));
+    while (folder !== ".") {
+      if (packages.has(folder)) return folder;
+      folder = slash(path.dirname(folder));
+    }
+    return "";
+  };
+  const packageSources = new Map<string, typeof validSources[number]["source"][]>();
+  for (const [name, source] of sourceByPath) {
+    const root = packageForPath(name);
+    const members = packageSources.get(root) ?? [];
+    members.push(source);
+    packageSources.set(root, members);
+  }
+  const routesRecoverable = framework.routesRecoverable?.(validSources.map(item => item.source)) ?? true;
+  for (const file of result.files) {
+    const source = sourceByPath.get(file.path)!;
+    const packageRoot = packageForPath(file.path);
+    const description = framework.inspect({ path: file.path, source, packageRoot, packageDependencies: packages.get(packageRoot), packageSources: packageSources.get(packageRoot) });
+    file.role = description.role;
+    file.entry = description.entry ?? false;
+    if (routesRecoverable) result.routes!.push(...description.routes);
+  }
   const nodes = new Set(result.files.map((file) => file.path));
   for (const { absolute, source, options } of validSources) {
     async function record(kind: ImportKind, specifier: string, line: number, literal = true): Promise<void> {
