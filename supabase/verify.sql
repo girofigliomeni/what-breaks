@@ -1,5 +1,16 @@
 -- Run as the database owner. Every assertion fails loudly; changes roll back.
 begin;
+-- Controlled fixtures keep isolation checks meaningful even with an empty dashboard.
+insert into public.organizations (id) values
+  ('org_3L6Gcqg29P2e9kQWc44v2Hv7Uf3'), ('org_3L6JhE5FMx3d0XMwt3oDSIoKav0')
+on conflict do nothing;
+insert into public.projects (organization_id, repository_url)
+select id, 'https://github.com/verification/rls-fixture' from public.organizations
+where id in ('org_3L6Gcqg29P2e9kQWc44v2Hv7Uf3', 'org_3L6JhE5FMx3d0XMwt3oDSIoKav0')
+on conflict do nothing;
+insert into public.analyses (organization_id, project_id)
+select organization_id, id from public.projects where repository_url = 'https://github.com/verification/rls-fixture'
+on conflict (organization_id, project_id) do nothing;
 do $$
 declare
   table_name text;
@@ -29,9 +40,11 @@ begin
       ) into unexpected;
       if unexpected <> 0 then raise exception 'Organization isolation failed for %', table_name; end if;
     end loop;
-    if coalesce(auth.jwt()->'o'->>'id', auth.jwt()->>'org_id') is not null then
-      select count(*) into unexpected from public.analyses;
-      if unexpected <> 4 then raise exception 'Expected four seeded analyses, got %', unexpected; end if;
+    select count(*) into unexpected from public.analyses a join public.projects p on p.id = a.project_id
+      where p.repository_url = 'https://github.com/verification/rls-fixture';
+    if coalesce(auth.jwt()->'o'->>'id', auth.jwt()->>'org_id') is null then
+      if unexpected <> 0 then raise exception 'Missing organization claim exposed fixture rows'; end if;
+    elsif unexpected <> 1 then raise exception 'Expected exactly one visible organization fixture, got %', unexpected;
     end if;
     reset role;
   end loop;

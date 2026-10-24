@@ -20,6 +20,22 @@ assert.equal(parsed.files.find((file) => file.path === "src/nested/leaf.ts")?.fo
 const output = path.join(fixture, "result.json");
 await writeResult(output, parsed);
 assert.deepEqual(await readResult(output), parsed);
+// Database JSONB preserves arrays, but not object property insertion order.
+const reordered = structuredClone(parsed);
+reordered.edges = parsed.edges.map(({ source, target, kinds }) => ({ kinds, target, source }));
+assert.deepEqual(validateResult(reordered), reordered);
+const wrongConnection = structuredClone(reordered);
+wrongConnection.edges[0].target = wrongConnection.edges[0].source;
+assert.throws(() => validateResult(wrongConnection), /Graph does not match resolved imports/);
+const wrongKind = structuredClone(reordered);
+wrongKind.edges[0].kinds = [wrongKind.edges[0].kinds[0] === "import" ? "dynamic-import" : "import"];
+assert.throws(() => validateResult(wrongKind), /Graph does not match resolved imports/);
+const missingEdge = structuredClone(reordered);
+missingEdge.edges.pop();
+assert.throws(() => validateResult(missingEdge), /Graph does not match resolved imports/);
+const wrongDegree = structuredClone(reordered);
+wrongDegree.files[0].fanOut++;
+assert.throws(() => validateResult(wrongDegree), /Graph does not match resolved imports/);
 const corrupt = structuredClone(parsed);
 corrupt.files[0].folder = "wrong";
 assert.throws(() => validateResult(corrupt), /Incorrect folder/);

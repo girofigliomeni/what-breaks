@@ -157,6 +157,13 @@ whole authorization layer. The distinction matters: signing in from a different
 organization should show the first one's rows are not hidden by the interface
 but absent from the query.
 
+**Pipeline writes have one explicit exception.** Clerk and RLS authorize the
+submission and create or reuse its analysis. For a newly created run only, one
+server-only writer uses the Supabase secret key, bound to the captured
+organization and analysis IDs. This lets progress, completion and failure writes
+survive the submitting token's expiry. The writer owns write isolation; all
+application reads and subscriptions continue to use the session token and RLS.
+
 **Row-level security is on by default, not per table.** An agent is writing
 these migrations, and the two failure modes are not symmetrical. A table with
 security enabled and no policy yet returns nothing, which is visible. A table

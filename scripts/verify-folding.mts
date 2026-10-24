@@ -1,7 +1,7 @@
-import { readResult } from "../parser/contract.mts";
+import { graphFixture } from "./graph-fixture.mts";
 import { foldFiles } from "../lib/folding.mts";
 
-const result = await readResult("data/preview.json");
+const result = await graphFixture();
 const folded = foldFiles(result.files, result.edges);
 const ids = new Set(folded.modules.map(module => module.id));
 const singles = folded.modules.filter(module => module.files.length < 2);

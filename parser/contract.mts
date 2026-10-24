@@ -40,7 +40,15 @@ export function validateResult(value: unknown): ParseResult {
   }
   const resolved = value.imports.flatMap((item) => item.status === "resolved" && item.target !== null ? [{ source: item.source, target: item.target, kinds: [item.kind] }] : []);
   const expected = calculateGraph(value.files, resolved);
-  if (JSON.stringify(expected.edges) !== JSON.stringify(value.edges) || expected.files.some((file, index) => file.fanIn !== value.files[index].fanIn || file.fanOut !== value.files[index].fanOut)) throw new Error("Graph does not match resolved imports.");
+  // JSONB may reorder object properties. Compare graph fields, while retaining
+  // exact edge counts, canonical array order, import kinds and degree checks.
+  const matchingEdges = expected.edges.length === value.edges.length && expected.edges.every((edge, index) => {
+    const actual = value.edges[index];
+    return edge.source === actual.source && edge.target === actual.target
+      && edge.kinds.length === actual.kinds.length
+      && edge.kinds.every((kind, kindIndex) => kind === actual.kinds[kindIndex]);
+  });
+  if (!matchingEdges || expected.files.some((file, index) => file.fanIn !== value.files[index].fanIn || file.fanOut !== value.files[index].fanOut)) throw new Error("Graph does not match resolved imports.");
   return value;
 }
 

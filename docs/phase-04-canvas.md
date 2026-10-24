@@ -1,5 +1,8 @@
 # Canvas preview
 
+Historical phase 04 notes: phase 07 replaced `/preview` and the checked-in
+parser output with `/analyses/[id]`, reading real stored results.
+
 Open `/preview`. Click a folder to open a bounded panel; click its header to
 close it. Select a file row to highlight its immediate connections. Click the
 canvas to clear selection. Height of a collapsed folder is `64 + 9 × √fanIn`
