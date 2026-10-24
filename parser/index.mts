@@ -42,7 +42,14 @@ export async function parseRepository(directory: string): Promise<ParseResult> {
       else {
         if (entry.name === "package.json") {
           const packageDependencies = new Set<string>();
-          const manifest: unknown = JSON.parse(await readFile(absolute, "utf8"));
+          const contents = await readFile(absolute, "utf8");
+          let manifest: unknown;
+          try {
+            manifest = JSON.parse(contents.replace(/^\uFEFF/, ""));
+          } catch (error) {
+            skipped.set(name, `Cannot parse package manifest: ${message(error)}`);
+            continue;
+          }
           if (typeof manifest === "object" && manifest !== null) for (const key of ["dependencies", "devDependencies", "peerDependencies"]) {
             const group: unknown = Reflect.get(manifest, key);
             if (typeof group === "object" && group !== null && !Array.isArray(group)) for (const dependency of Object.keys(group)) {

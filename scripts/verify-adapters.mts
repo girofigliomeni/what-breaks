@@ -51,6 +51,19 @@ assert.deepEqual(workspace.routes?.map(route => [route.method, route.pattern, ro
 ]);
 assert.equal(workspace.files.find(file => file.path === "apps/v4/app/(site)/page.tsx")?.role, "Page routes");
 assert.deepEqual(taxonomy.nextjs.slice(0, 3), ["Page routes", "API endpoints", "Server actions"]);
+const manifests = await fixture({}, {
+  "apps/site/package.json": '\uFEFF{"dependencies":{"next":"16"}}',
+  "apps/site/app/page.tsx": "export default function Page() { return <main/>; }",
+  "apps/site/app/nested/package.json": '{"dependencies":',
+  "apps/site/app/nested/page.tsx": "export default function Page() { return <main/>; }",
+  "invalid/package.json": "not json",
+  "invalid/entry.js": "export const value = 1;",
+});
+assert.equal(manifests.adapter, "nextjs");
+assert.equal(manifests.files.find(file => file.path === "apps/site/app/nested/page.tsx")?.role, "Page routes");
+assert.deepEqual(manifests.routes?.map(route => route.pattern), ["/nested", "/"]);
+assert.ok(manifests.files.some(file => file.path === "invalid/entry.js"));
+assert.equal(manifests.coverage.skipped.filter(file => file.reason.startsWith("Cannot parse package manifest:")).length, 2);
 const controller = `import { Controller as C, Get as G, Post } from '@nestjs/common';
 @C('cats') export class CatsController {
   @G(':id') find() {}
