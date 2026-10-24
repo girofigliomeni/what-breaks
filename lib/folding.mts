@@ -43,11 +43,22 @@ export function foldFiles(files: ParsedFile[], edges: Edge[]) {
 }
 
 export function shortLabels(paths: string[]) {
-  return new Map(paths.map(path => {
+  // Count suffixes once; comparing every pair freezes large expanded folders.
+  const suffixCounts = new Map<string, number>();
+  const partsByPath = new Map<string, string[]>();
+  for (const path of new Set(paths)) {
     const parts = path.split("/");
+    partsByPath.set(path, parts);
     for (let length = 1; length <= parts.length; length++) {
       const suffix = parts.slice(-length).join("/");
-      if (paths.every(other => other === path || (other !== suffix && !other.endsWith(`/${suffix}`)))) return [path, suffix];
+      suffixCounts.set(suffix, (suffixCounts.get(suffix) ?? 0) + 1);
+    }
+  }
+  return new Map(paths.map(path => {
+    const parts = partsByPath.get(path)!;
+    for (let length = 1; length <= parts.length; length++) {
+      const suffix = parts.slice(-length).join("/");
+      if (suffixCounts.get(suffix) === 1) return [path, suffix];
     }
     return [path, path];
   }));

@@ -10,7 +10,14 @@ export function repositoryUrl(input: string): string {
 }
 
 async function checkedFetch(url: string): Promise<Response> {
-  const response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(60000), redirect: "error" });
+  let response: Response;
+  try {
+    response = await fetch(url, { headers, cache: "no-store", signal: AbortSignal.timeout(60000), redirect: "error" });
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      throw new Error(`GitHub ${url.startsWith("https://api.github.com/") ? "commit lookup" : "archive download"} timed out after 60 seconds. Retry the analysis.`);
+    throw error;
+  }
   if (!response.ok) {
     if (response.status === 404) throw new Error("GitHub repository was not found or is not public.");
     if (response.status === 403 || response.status === 429) throw new Error("GitHub refused the request or its public API rate limit was reached. Try again later.");
@@ -38,6 +45,10 @@ export async function fetchRepository(input: string): Promise<{ archive: Buffer;
       if (size > maximumArchive) { await reader.cancel(); throw new Error("Repository exceeds the 128 MiB download limit."); }
       chunks.push(value);
     }
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      throw new Error("GitHub archive download timed out after 60 seconds. Retry the analysis.");
+    throw error;
   } finally { reader.releaseLock(); }
   return { archive: Buffer.concat(chunks), commit: metadata.sha };
 }

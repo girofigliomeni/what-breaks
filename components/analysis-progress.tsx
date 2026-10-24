@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { readProgress } from "@/app/analyses/actions";
+import { readProgress } from "@/lib/analysis-snapshots";
 import { useRealtimeClientFactory } from "@/lib/supabase/use-realtime";
 import { isFinished, progressPayload, stageNames, type Progress } from "@/lib/progress";
 import { useStaleRun } from "./use-stale-run";
@@ -25,6 +25,19 @@ export function AnalysisProgress({ id, initial, initiallyStale }: {
       setProgress(next);
       if (next.stage === "completed") router.refresh();
     };
+    const recover = () => {
+      const snapshotRevision = ++revision;
+      void readProgress(id).then((snapshot) => {
+        if (disposed || revision !== snapshotRevision) return;
+        if (snapshot) accept(snapshot);
+        else setConnection("This analysis is unavailable for the active organization.");
+      }).catch(() => { if (!disposed && revision === snapshotRevision) setConnection("Could not recover progress. Reload to try again."); });
+    };
+    // Recover the current row even when the socket cannot join. Further reads
+    // happen on connection/user events, never on a polling timer.
+    recover();
+    window.addEventListener("focus", recover);
+    window.addEventListener("online", recover);
     const channel = client.channel(`analysis:${id}`, { config: { private: true } })
       .on("broadcast", { event: "progress" }, ({ payload }: { payload: unknown }) => {
         if (disposed) return;
@@ -41,16 +54,16 @@ export function AnalysisProgress({ id, initial, initiallyStale }: {
           setConnection("Live updates connected");
           // Events can finish the run before the socket joins. Read once after
           // joining (also on reconnect), discarding snapshots overtaken by events.
-          const snapshotRevision = revision;
-          void readProgress(id).then((snapshot) => {
-            if (disposed || revision !== snapshotRevision) return;
-            if (snapshot) accept(snapshot);
-            else setConnection("This analysis is unavailable for the active organization.");
-          }).catch(() => { if (!disposed) setConnection("Could not recover progress. Reload to try again."); });
+          recover();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setConnection("Live updates interrupted. Reconnecting");
       });
     }).catch(() => { if (!disposed) setConnection("Live updates unavailable. Reload to reconnect."); });
-    return () => { disposed = true; void client.removeChannel(channel); };
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", recover);
+      window.removeEventListener("online", recover);
+      void client.removeChannel(channel);
+    };
   }, [createRealtimeClient, id, router]);
   const current = runStages.findIndex((stage) => stage === progress.stage);
   return <section className="analysis-progress" aria-labelledby="progress-title">

@@ -1,4 +1,4 @@
-export type ImportKind = "import" | "re-export" | "dynamic-import";
+export type ImportKind = "import" | "re-export" | "dynamic-import" | "require";
 export type ImportStatus = "resolved" | "external" | "excluded" | "unresolved";
 
 export interface ParsedFile {
@@ -9,6 +9,16 @@ export interface ParsedFile {
   hash: string;
   fanIn: number;
   fanOut: number;
+  role?: string;
+  entry?: boolean;
+  exports?: string[];
+}
+
+export interface Route {
+  file: string;
+  line: number;
+  method: string;
+  pattern: string;
 }
 
 export interface Edge {
@@ -33,6 +43,7 @@ export interface ParseResult {
   files: ParsedFile[];
   edges: Edge[];
   imports: ImportRecord[];
+  routes?: Route[];
   coverage: {
     filesFound: number;
     filesParsed: number;
@@ -42,15 +53,3 @@ export interface ParseResult {
     imports: Record<ImportStatus, number>;
   };
 }
-
-export interface RepositoryAdapter {
-  name: string;
-  describeFile(path: string): { module: string };
-}
-
-// A module is identified by its complete repository-relative file path.
-// Framework adapters can add knowledge later without changing file selection.
-export const fallbackAdapter: RepositoryAdapter = {
-  name: "none",
-  describeFile: (path) => ({ module: path }),
-};

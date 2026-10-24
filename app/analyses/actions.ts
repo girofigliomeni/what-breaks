@@ -1,8 +1,6 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { getAnalysis, listAnalyses } from "@/lib/analyses";
-import { progressPayload, stageMessage } from "@/lib/progress";
 import { createSupabaseClient } from "@/lib/supabase/server";
 import { analysisStore } from "@/lib/supabase/analysis-store";
 import { runAnalysis } from "@/pipeline/run.mts";
@@ -32,18 +30,4 @@ export async function changeAnalysis(id: string, operation: "retry" | "remove") 
       ? "Could not retry. The analysis may already be running or unavailable. Reload and try again."
       : "Could not remove. The analysis may be running or unavailable. Reload and try again." };
   }
-}
-
-export async function readProgress(id: string) {
-  await auth.protect();
-  const analysis = await getAnalysis(id);
-  if (!analysis) return null;
-  const progress = progressPayload({ stage: analysis.stage, message: stageMessage(analysis) });
-  if (!progress) throw new Error("The stored analysis has an invalid progress stage.");
-  return { ...progress, updatedAt: analysis.updated_at };
-}
-
-export async function readAnalysisList() {
-  await auth.protect();
-  return listAnalyses();
 }
