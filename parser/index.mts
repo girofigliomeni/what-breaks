@@ -5,6 +5,7 @@ import path from "node:path";
 import { Project, Node, SyntaxKind, ts } from "ts-morph";
 import { calculateGraph } from "./graph.mts";
 import { detectAdapter } from "../adapters/index.mts";
+import { commonJSExports, isUnboundIdentifier } from "./commonjs.mts";
 import type { ImportKind, ImportRecord, ParseResult } from "./types.mts";
 
 const excludedDirectories = new Set(["node_modules", "dist", "build", "out", "coverage"]);
@@ -129,13 +130,14 @@ export async function parseRepository(directory: string): Promise<ParseResult> {
     const description = framework.inspect({ path: file.path, source, packageRoot, packageDependencies: packages.get(packageRoot), packageSources: packageSources.get(packageRoot) });
     file.role = description.role;
     file.entry = description.entry ?? false;
+    file.exports = commonJSExports(source);
     if (routesRecoverable) result.routes!.push(...description.routes);
   }
   const nodes = new Set(result.files.map((file) => file.path));
   for (const { absolute, source, options } of validSources) {
     async function record(kind: ImportKind, specifier: string, line: number, literal = true): Promise<void> {
       const item: ImportRecord = { source: relative(absolute), line, kind, specifier, status: "unresolved", target: null, reason: "" };
-      if (!literal) item.reason = "Dynamic import argument is not a literal string";
+      if (!literal) item.reason = kind === "require" ? "require() needs exactly one literal string argument" : "Dynamic import argument is not a literal string";
       else if (isBuiltin(specifier)) { item.status = "external"; item.reason = "Node.js built-in module"; }
       else {
         const resolved = ts.resolveModuleName(specifier, absolute, options, ts.sys).resolvedModule;
@@ -172,6 +174,12 @@ export async function parseRepository(directory: string): Promise<ParseResult> {
       if (specifier !== undefined) await record("re-export", specifier, declaration.getStartLineNumber());
     }
     for (const call of source.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+      if (isUnboundIdentifier(call.getExpression(), "require")) {
+        const argument = call.getArguments()[0];
+        const literal = argument !== undefined && Node.isStringLiteral(argument);
+        await record("require", literal ? argument.getLiteralValue() : argument?.getText() ?? "", call.getStartLineNumber(), literal && call.getArguments().length === 1);
+        continue;
+      }
       if (call.getExpression().getKind() !== SyntaxKind.ImportKeyword) continue;
       const argument = call.getArguments()[0];
       await record("dynamic-import", argument && Node.isStringLiteral(argument) ? argument.getLiteralValue() : argument?.getText() ?? "", call.getStartLineNumber(), argument !== undefined && Node.isStringLiteral(argument));

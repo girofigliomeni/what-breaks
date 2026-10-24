@@ -5,7 +5,7 @@ import type { ImportKind, ImportStatus, ParseResult } from "./types.mts";
 const object = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const count = (value: unknown): value is number => Number.isSafeInteger(value) && typeof value === "number" && value >= 0;
 const text = (value: unknown): value is string => typeof value === "string";
-const kind = (value: unknown): value is ImportKind => value === "import" || value === "re-export" || value === "dynamic-import";
+const kind = (value: unknown): value is ImportKind => value === "import" || value === "re-export" || value === "dynamic-import" || value === "require";
 const status = (value: unknown): value is ImportStatus => value === "resolved" || value === "external" || value === "excluded" || value === "unresolved";
 const localPath = (value: unknown): value is string => text(value) && value.length > 0 && !value.includes("\\") && !value.startsWith("/") && !/^[a-z]:/i.test(value) && !value.split("/").includes("..");
 const reasonEntry = (value: unknown) => object(value) && localPath(value.path) && text(value.reason) && value.reason.length > 0;
@@ -29,6 +29,7 @@ export function validateResult(value: unknown): ParseResult {
   for (const file of value.files) {
     if (file.role !== undefined && (!text(file.role) || !file.role)) throw new Error("Invalid file role.");
     if (file.entry !== undefined && typeof file.entry !== "boolean") throw new Error("Invalid file entry marker.");
+    if (file.exports !== undefined && (!Array.isArray(file.exports) || !file.exports.every(name => text(name) && name.length > 0) || new Set(file.exports).size !== file.exports.length)) throw new Error("Invalid exported names.");
   }
   if (value.routes !== undefined) {
     if (!Array.isArray(value.routes)) throw new Error("Invalid route table.");

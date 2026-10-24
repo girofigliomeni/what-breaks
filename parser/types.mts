@@ -1,4 +1,4 @@
-export type ImportKind = "import" | "re-export" | "dynamic-import";
+export type ImportKind = "import" | "re-export" | "dynamic-import" | "require";
 export type ImportStatus = "resolved" | "external" | "excluded" | "unresolved";
 
 export interface ParsedFile {
@@ -11,6 +11,7 @@ export interface ParsedFile {
   fanOut: number;
   role?: string;
   entry?: boolean;
+  exports?: string[];
 }
 
 export interface Route {

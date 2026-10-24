@@ -3,6 +3,7 @@ import type { Route } from "../parser/types.mts";
 import { genericRole } from "./taxonomy.mts";
 import { nextAdapter } from "./nextjs.mts";
 import { nestAdapter } from "./nestjs.mts";
+import { expressAdapter } from "./express.mts";
 
 export interface AdapterInput {
   path: string;
@@ -31,7 +32,7 @@ const genericAdapter: FrameworkAdapter = {
   inspect: ({ path }) => ({ role: genericRole(path), routes: [] }),
 };
 export function detectAdapter(dependencies: ReadonlySet<string>): FrameworkAdapter {
-  return [nextAdapter, nestAdapter, reactAdapter, genericAdapter].find(adapter => adapter.matches(dependencies))!;
+  return [nextAdapter, nestAdapter, expressAdapter, reactAdapter, genericAdapter].find(adapter => adapter.matches(dependencies))!;
 }
 
 export function hasDirective(source: { getStatements(): Statement[] }, directive: string): boolean {

@@ -4,6 +4,7 @@ const generic = ["Type declarations", "Tests", "Configuration", "Module indexes"
 export const taxonomy: Record<string, readonly string[]> = {
   nextjs: ["Page routes", "API endpoints", "Server actions", "Layouts", "Components", ...generic],
   nestjs: ["Controllers", "Services", "Modules", "Entities", ...generic],
+  express: ["Routes", "Controllers", "Middleware", "Models", "Services", ...generic],
   react: ["Components", "Hooks", ...generic],
   none: generic,
 };
